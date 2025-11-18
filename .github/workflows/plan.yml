@@ -4,11 +4,15 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - '**.tf'             
+      - '**.tfvars'        
+      - '.terraform.lock.hcl' 
 
 permissions:
-  id-token: write 
+  id-token: write
   contents: read
-  pull-requests: write # Required to post the plan comment
+  pull-requests: write
 
 jobs:
   terraform_plan:
