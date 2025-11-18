@@ -1,0 +1,50 @@
+name: 'Terraform Plan on PR'
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write 
+  contents: read
+  pull-requests: write # Required to post the plan comment
+
+jobs:
+  terraform_plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::151462990345:role/GitHubActions-Plan
+          aws-region: us-east-2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -input=false
+
+      - name: Update PR with Plan
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const output = `#### Terraform Plan Output \n\n\`\`\`\n${process.env.PLAN_OUTPUT}\n\`\`\``;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+        env:
+          PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
