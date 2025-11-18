@@ -9,7 +9,7 @@ terraform {
 
   # S3 Backend Configuration
   backend "s3" {
-    bucket         = "cyb611-tf-state-phish-bits" # REPLACE with your ACTUAL State Bucket name
+    bucket         = "team-phish-bits-tf-state" 
     key            = "cyb611/terraform.tfstate"
     region         = "us-east-2"
     dynamodb_table = "terraform-state-locks"
