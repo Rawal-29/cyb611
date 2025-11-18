@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - main
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '.terraform.lock.hcl'
 
 permissions:
-  id-token: write # Required for OIDC
+  id-token: write
   contents: read
 
 jobs:
