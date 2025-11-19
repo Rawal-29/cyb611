@@ -6,7 +6,7 @@ This repository demonstrates a fully automated **Infrastructure as Code (IaC)** 
 To create a secure, collaborative workflow where infrastructure changes are:
 1.  **Version Controlled:** All changes are tracked in Git.
 2.  **Automated:** No manual execution of scripts locally.
-3.  [cite_start]**Secure:** Uses temporary credentials (OIDC) instead of long-lived access keys[cite: 230].
+3.  **Secure:** Uses temporary credentials (OIDC) instead of long-lived access keys[cite: 230].
 4.  **Peer Reviewed:** Changes must pass a `terraform plan` on a Pull Request before deployment.
 
 ---
@@ -38,7 +38,7 @@ Before automation can run, the "backend" infrastructure must exist to store the 
     * *Key:* `LockID`.
 
 ### Phase 2: Secure Authentication (OIDC)
-[cite_start]Instead of creating an IAM User with permanent access keys (which is a security risk)[cite: 229], I configured **OIDC Federation**.
+Instead of creating an IAM User with permanent access keys (which is a security risk)[cite: 229], I configured **OIDC Federation**.
 
 1.  **Identity Provider:** Connected AWS IAM to GitHub (`token.actions.githubusercontent.com`).
 2.  **Created IAM Roles:**
@@ -54,11 +54,11 @@ I created the following Terraform configurations and GitHub Workflows:
 
 #### 1. Terraform Files
 * `versions.tf`: Configures the **S3 Backend** connection.
-* [cite_start]`secure_bucket.tf`: Defines the actual resource (S3 Bucket) with mandatory security controls[cite: 206]:
-    * [cite_start]✅ Block Public Access enabled[cite: 216].
-    * [cite_start]✅ Versioning enabled[cite: 245].
-    * [cite_start]✅ Encryption (SSE-S3) enabled[cite: 233].
-    * [cite_start]✅ Bucket Owner Enforced (ACLs disabled)[cite: 210].
+* `secure_bucket.tf`: Defines the actual resource (S3 Bucket) with mandatory security controls[cite: 206]:
+    * ✅ Block Public Access enabled[cite: 216].
+    * ✅ Versioning enabled[cite: 245].
+    * ✅ Encryption (SSE-S3) enabled[cite: 233].
+    * ✅ Bucket Owner Enforced (ACLs disabled)[cite: 210].
 
 #### 2. GitHub Actions (`.github/workflows/`)
 * **`plan.yml`**: Runs `terraform plan`.
@@ -89,6 +89,6 @@ We enforced **Branch Protection Rules** on `main` to ensure this workflow is fol
 | :--- | :--- |
 | **Remote State (S3)** | Prevents "it works on my machine" issues and enables collaboration. |
 | **DynamoDB Locking** | Prevents state corruption from simultaneous deploys. |
-| **OIDC Auth** | [cite_start]**Security Best Practice.** Removes the risk of leaking long-lived AWS Access Keys[cite: 229]. |
-| **Separate IAM Roles** | [cite_start]**Least Privilege.** The `Plan` role cannot modify infrastructure; only the `Apply` role (running on the protected main branch) can[cite: 224]. |
+| **OIDC Auth** | **Security Best Practice.** Removes the risk of leaking long-lived AWS Access Keys[cite: 229]. |
+| **Separate IAM Roles** | **Least Privilege.** The `Plan` role cannot modify infrastructure; only the `Apply` role (running on the protected main branch) can[cite: 224]. |
 | **Branch Protection** | Ensures no code is deployed without passing a `terraform plan` check first. |
