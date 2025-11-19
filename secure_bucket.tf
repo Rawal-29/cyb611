@@ -34,3 +34,14 @@ resource "aws_s3_bucket_versioning" "versioning" {
     status = "Enabled"
   }
 }
+
+
+
+resource "aws_s3_bucket" "secure_bucket_2" {
+  bucket = "cyb611-secure-phish-bits-29333" 
+  
+  tags = {
+    Name        = "CYB611 Secure Baseline"
+    Environment = "Test"
+  }
+}
