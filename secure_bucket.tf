@@ -37,7 +37,7 @@ resource "aws_s3_bucket_versioning" "versioning" {
 
 
 
-resource "aws_s3_bucket" "secure_bucket" {
+resource "aws_s3_bucket" "secure_bucket_2" {
   bucket = "cyb611-secure-phish-bits-29333" 
   
   tags = {
