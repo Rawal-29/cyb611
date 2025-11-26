@@ -19,6 +19,8 @@ resource "aws_s3_bucket_acl" "log_acl" {
   acl        = "log-delivery-write"
 }
 
+
+
 # ---------------------------------------------------------
 # 2. SECURE DATA BUCKET (UPDATED)
 # ---------------------------------------------------------
