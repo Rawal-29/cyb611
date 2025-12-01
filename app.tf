@@ -59,7 +59,7 @@ resource "aws_lambda_function" "scanner" {
   source_code_hash = data.archive_file.lambda.output_base64sha256
   timeout          = 15
   
-  reserved_concurrent_executions = 5
+  
 }
 
 resource "aws_lambda_function_url" "scanner" {
