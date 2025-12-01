@@ -53,13 +53,11 @@ resource "aws_iam_role_policy" "scanner" {
 resource "aws_lambda_function" "scanner" {
   function_name    = "S3SecurityScanner"
   role             = aws_iam_role.scanner.arn
-  handler          = "red_team_lambda.lambda_handler"
+  handler          = "app.lambda_handler"
   runtime          = "python3.9"
   filename         = data.archive_file.lambda.output_path
   source_code_hash = data.archive_file.lambda.output_base64sha256
-  timeout          = 15
-  
-  
+  timeout          = 30
 }
 
 resource "aws_lambda_function_url" "scanner" {
