@@ -31,4 +31,5 @@ resource "aws_s3_bucket_policy" "public_rw_policy" {
       Resource  = "${aws_s3_bucket.public_s3_rw_access.arn}/*"
     }]
   })
+  depends_on = [aws_s3_bucket_public_access_block.public_rw_disable]
 }
