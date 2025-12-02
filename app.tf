@@ -1,9 +1,14 @@
+# =============================================================================
+# AUTOMATED SCANNER INFRASTRUCTURE
+# =============================================================================
+
 data "archive_file" "lambda" {
   type        = "zip"
   source_file = "${path.module}/app.py"
   output_path = "${path.module}/package.zip"
 }
 
+# Role for the Scanner Function
 resource "aws_iam_role" "scanner" {
   name = "S3ScannerRole"
   assume_role_policy = jsonencode({
@@ -11,13 +16,12 @@ resource "aws_iam_role" "scanner" {
     Statement = [{
       Action = "sts:AssumeRole"
       Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
+      Principal = { Service = "lambda.amazonaws.com" }
     }]
   })
 }
 
+# Least Privilege Permissions (Read-Only + Logging)
 resource "aws_iam_role_policy" "scanner" {
   name = "S3ScannerPolicy"
   role = aws_iam_role.scanner.id
@@ -39,11 +43,7 @@ resource "aws_iam_role_policy" "scanner" {
       },
       {
         Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ]
+        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
         Resource = "arn:aws:logs:*:*:*"
       }
     ]
@@ -57,9 +57,10 @@ resource "aws_lambda_function" "scanner" {
   runtime          = "python3.9"
   filename         = data.archive_file.lambda.output_path
   source_code_hash = data.archive_file.lambda.output_base64sha256
-  timeout          = 30
+  timeout          = 15
 }
 
+# Public Function URL (No Auth required for testing)
 resource "aws_lambda_function_url" "scanner" {
   function_name      = aws_lambda_function.scanner.function_name
   authorization_type = "NONE"
