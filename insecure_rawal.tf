@@ -74,7 +74,7 @@ resource "aws_s3_bucket_versioning" "insecure_versioning" {
 resource "aws_s3_bucket_policy" "insecure_policy" {
   bucket = aws_s3_bucket.insecure_bucket.id
 
-  # FIX: This 'depends_on' prevents the "Access Denied" error you saw.
+  # FIX: This 'depends_on' prevents the "Access Denied" error.
   # It ensures Terraform completely disables the public block BEFORE applying this policy.
   depends_on = [aws_s3_bucket_public_access_block.insecure_block]
 
@@ -97,4 +97,14 @@ resource "aws_s3_bucket_policy" "insecure_policy" {
 # ---------------------------------------------------------
 # VULNERABILITY: This allows malicious scripts running on OTHER websites
 # to read data from your bucket using the browser.
-resource "aws_s3_bucket_
+resource "aws_s3_bucket_cors_configuration" "insecure_cors" {
+  bucket = aws_s3_bucket.insecure_bucket.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD"]
+    allowed_origins = ["*"] # The wildcard "*" allows ANY site to access data
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
