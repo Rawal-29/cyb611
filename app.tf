@@ -1,5 +1,3 @@
-data "aws_caller_identity" "current" {}
-
 # =============================================================================
 # 1. SHARED SECURITY RESOURCES
 # =============================================================================
@@ -101,7 +99,7 @@ resource "aws_s3_bucket_public_access_block" "insecure" {
 
 resource "aws_s3_bucket_policy" "insecure" {
   bucket     = aws_s3_bucket.insecure.id
-  depends_on = [aws_s3_bucket_public_access_block.insecure] # Critical for race condition
+  depends_on = [aws_s3_bucket_public_access_block.insecure]
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -124,6 +122,7 @@ data "archive_file" "lambda" {
   output_path = "${path.module}/package.zip"
 }
 
+# Role definition for the Lambda Scanner
 resource "aws_iam_role" "scanner" {
   name = "S3ScannerRole"
   assume_role_policy = jsonencode({
@@ -136,6 +135,7 @@ resource "aws_iam_role" "scanner" {
   })
 }
 
+# Permissions for the Scanner (Read Only + Logging)
 resource "aws_iam_role_policy" "scanner" {
   name = "S3ScannerPolicy"
   role = aws_iam_role.scanner.id
