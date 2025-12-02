@@ -14,20 +14,26 @@ The goal is to demonstrate the security differences between a **Secure Baseline*
 ---
 
 ## 📂 Project Folder Structure
-```text
+```
 cyb611/
 ├── .github/
 │   └── workflows/
-│       ├── plan.yml          # CI Pipeline: Runs 'terraform plan' on Pull Requests
-│       └── apply.yml         # CD Pipeline: Runs 'terraform apply' on Merge to Main
-├── app.py                    # Python Automation: Uploads data & tests access
-├── secure_bucket.tf          # IaC: Defines the Secure Baseline bucket
-├── insecure_rawal.tf         # IaC: Defines the Vulnerable Target bucket (Phase 2)
-├── cloudtrail.tf             # IaC: Configures Logging and Auditing
-├── versions.tf               # Config: Connects Terraform to AWS Backend
-└── README.md                 # Documentation
-````
-
+│       ├── plan.yml          # UPDATED (See below)
+│       └── apply.yml         # UPDATED (See below)
+├── infrastructure/           # ALL .tf files go here
+│   ├── anything.tf
+│   ├── app.tf                # UPDATED (See below)
+│   ├── cloudtrail.tf
+│   ├── insecure_rawal.tf
+│   ├── secure_bucket.tf
+│   ├── versions.tf
+│   └── README.md             # Infra specific docs
+├── scripts/                  # Python & Data go here
+│   ├── app.py
+│   ├── mock_pii.csv
+│   └── README.md             # Script specific docs
+└── README.md                 # Main project docs
+```
 -----
 
 ## 🏗️ Part 1: Account & Tool Prerequisites
@@ -131,7 +137,7 @@ We created the following files to define our secure infrastructure.
 
 -----
 
-## 🚀 Part 5: The Workflow (How We Work)
+## 🚀 Part 5: The Workflow
 
 We follow a strict **Branching Strategy**. Direct pushes to `main` are blocked.
 
@@ -174,26 +180,12 @@ git push origin feature/add-new-bucket
 
 ## 🧪 Part 6: Data Population
 
-After the secure bucket was deployed, we uploaded mock PII data to test the environment. We can do this manually or via our Python script.
+After the secure bucket was deployed, we uploaded mock PII data to test the environment. We can do this manually or via Python script.
 
 ### Option A: Manual CLI Upload
 
 ```bash
 aws s3 cp mock_pii.csv s3://cyb611-secure-phish-bits-12345/sensitive-data/mock_pii.csv
-```
-
-### Option B: Python Automation (`app.py`)
-
-We created `app.py` to programmatically upload data to both the Secure and Insecure buckets and verify access.
-
-**Usage:**
-
-```bash
-# 1. Install prerequisites
-pip install boto3
-
-# 2. Run the script
-python app.py
 ```
 
 -----

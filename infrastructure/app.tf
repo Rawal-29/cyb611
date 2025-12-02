@@ -4,7 +4,7 @@
 
 data "archive_file" "lambda" {
   type        = "zip"
-  source_file = "${path.module}/app.py"
+  source_file = "${path.module}/../scripts/app.py"
   output_path = "${path.module}/package.zip"
 }
 
@@ -54,7 +54,7 @@ resource "aws_lambda_function" "scanner" {
   function_name    = "S3SecurityScanner"
   role             = aws_iam_role.scanner.arn
   handler          = "app.lambda_handler"
-  runtime          = "python3.9"
+  runtime          = "python3.12"
   filename         = data.archive_file.lambda.output_path
   source_code_hash = data.archive_file.lambda.output_base64sha256
   timeout          = 15
