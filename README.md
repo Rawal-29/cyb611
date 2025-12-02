@@ -1,8 +1,7 @@
-````markdown
 # 🛡️ Project Phish & Bits: Secure S3 Infrastructure Automation
 
-**Course:** CYB 611 | Fall 2025
-**Team:** Phish & Bits
+**Course:** CYB 611 | Fall 2025\
+**Team:** Phish & Bits\
 **Repository:** [Rawal-29/cyb611](https://github.com/Rawal-29/cyb611)
 
 ---
@@ -14,12 +13,7 @@ The goal is to demonstrate the security differences between a **Secure Baseline*
 
 ---
 
-## 🏗️ Architecture Diagram
-
-
-
 ## 📂 Project Folder Structure
-
 ```text
 cyb611/
 ├── .github/
@@ -32,7 +26,7 @@ cyb611/
 ├── cloudtrail.tf             # IaC: Configures Logging and Auditing
 ├── versions.tf               # Config: Connects Terraform to AWS Backend
 └── README.md                 # Documentation
-```
+````
 
 -----
 
@@ -202,27 +196,22 @@ pip install boto3
 python app.py
 ```
 
-**What the script does:**
-
-1.  Connects to AWS using `boto3`.
-2.  Uploads `mock_pii.csv` to all project buckets.
-3.  Prints a success message verifying the environment is ready for testing.
-
 -----
 
-## 📊 Summary of Results
+## 📊 Summary of Results & Misconfiguration Analysis
 
-With both environments deployed, we can demonstrate the security gap:
+We performed side-by-side testing of the two environments. The results demonstrate the critical impact of S3 misconfigurations.
 
-| Test | Secure Bucket 🛡️ | Vulnerable Bucket ⚠️ |
-| :--- | :--- | :--- |
-| **Public URL Access** | 🔒 **Denied** (403 Forbidden) | 🔓 **Allowed** (200 OK) - Data Exposed |
-| **Encryption Check** | ✅ **Encrypted** (AES-256) | ❌ **Plain Text** |
-| **Traffic Logs** | ✅ **Logged** in S3/CloudTrail | ✅ **Logged** (Forensic Evidence Available) |
+| Security Control | 🛡️ Secure Baseline | ⚠️ Vulnerable Target (Phase 2) | Risk / Impact |
+| :--- | :--- | :--- | :--- |
+| **Public Internet Access** | 🔒 **BLOCKED** <br>(403 Forbidden) | 🔓 **ALLOWED** <br>(200 OK) | **Data Leakage:** Anyone with the URL can download sensitive PII. |
+| **Encryption at Rest** | ✅ **AES-256 Enabled** | ❌ **Disabled** (Plain text) | **Compliance Violation:** Data is readable if physical drives are compromised; fails GDPR/HIPAA. |
+| **Bucket Policy** | ✅ **Strict** (TLS Only) | ❌ **Wildcard (`*`)** | **Unauthorized Access:** Policy explicitly grants `s3:GetObject` to any principal (`*`). |
+| **CORS Configuration** | ✅ **Restricted** | ❌ **Wildcard (`*`)** | **Cross-Site Scripting:** Malicious websites can read bucket data via browser scripts. |
+| **Versioning** | ✅ **Enabled** | ❌ **Suspended** | **Data Loss:** If an attacker overwrites a file, the original data is permanently lost. |
+| **Network Security** | ✅ **HTTPS Enforced** | ❌ **HTTP Allowed** | **Man-in-the-Middle:** Attackers can intercept data in transit if downloaded via HTTP. |
+| **Access Logging** | ✅ **Enabled** (Sent to Log Bucket) | ⚠️ **CloudTrail Only** | **Forensic Gaps:** We lack detailed server access logs for the vulnerable bucket. |
 
 -----
-
+\
 **Maintained by Team Phish & Bits**
-
-```
-```
