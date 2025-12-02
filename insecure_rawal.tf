@@ -4,7 +4,7 @@
 
 
 resource "aws_s3_bucket" "insecure" {
-  bucket = "cyb611-secure-phish-bits-insecure-bucket-001"
+  bucket = "cyb611-secure-phish-bits-insecure-bucket-1"
   force_destroy = true
   
   tags = {
