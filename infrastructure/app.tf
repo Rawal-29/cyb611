@@ -4,7 +4,7 @@
 
 data "archive_file" "lambda" {
   type        = "zip"
-  source_file = "${path.module}/app.py"
+  source_file = "${path.module}/../scripts/app.py"
   output_path = "${path.module}/package.zip"
 }
 
