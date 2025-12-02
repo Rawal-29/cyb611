@@ -16,58 +16,7 @@ The goal is to demonstrate the security differences between a **Secure Baseline*
 
 ## 🏗️ Architecture Diagram
 
-This diagram illustrates how our code moves from VS Code to AWS securely.
 
-```mermaid
-graph TD
-    User((Dev / Team)) -->|Push Code| GH[GitHub Repository]
-    subgraph "CI/CD Pipeline (GitHub Actions)"
-        GH -->|Pull Request| Plan[Terraform Plan]
-        GH -->|Merge to Main| Apply[Terraform Apply]
-    end
-    
-    subgraph "AWS Cloud (us-east-2)"
-        OIDC[IAM OIDC Provider] -.->|Auth Token| Apply
-        Apply -->|Deploy| State[S3 Backend (tfstate)]
-        Apply -->|Deploy| Secure[🛡️ Secure Bucket]
-        Apply -->|Deploy| Insecure[⚠️ Vulnerable Bucket]
-        Apply -->|Deploy| Logs[CloudTrail & Logs]
-    end
-
-    Plan -.->|Read Only| State
-
-```text
-+-------------+          +------------------------+
-|  Developer  |--------->|   GitHub Repository    |
-| (VS Code)   | git push |      (Rawal-29)        |
-+-------------+          +------------------------+
-                                     |
-                                     v
-                        +--------------------------+
-                        |      GitHub Actions      |
-                        |      (CI/CD Pipeline)    |
-                        +--------------------------+
-                               /           \
-               (Pull Request) /             \ (Merge to Main)
-                             v               v
-                    +----------------+  +-----------------+
-                    | Terraform Plan |  | Terraform Apply |
-                    |  (Read-Only)   |  |  (Deploy/Write) |
-                    +----------------+  +-----------------+
-                                             |
-                                             | (OIDC Auth)
-                                             v
-                                    +------------------+
-                                    |    AWS Cloud     |
-                                    |   (us-east-2)    |
-                                    |                  |
-                                    |  1. Secure S3 🛡️|
-                                    |  2. Insecure S3⚠️|
-                                    |  3. CloudTrail 📝|
-                                    +------------------+
-````
-
------
 
 ## 📂 Project Folder Structure
 
