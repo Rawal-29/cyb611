@@ -3,7 +3,7 @@
 # =============================================================================
 
 
-resource "aws_s3_bucket" "insecure_bucket" {
+resource "aws_s3_bucket" "insecure" {
   bucket = "cyb611-secure-phish-bits-insecure-bucket-001"
   force_destroy = true
   
