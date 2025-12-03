@@ -66,6 +66,7 @@ resource "aws_s3_bucket_logging" "logging_no_encryption" {
   target_prefix = "log/"
 }
 
+
 # ---------------------------------------------------------
 #[TLS POLICY OMITTED INTENTIONALLY- ALLOWS HTTP CONNECTION-UNENCRYPTED]
 # ---------------------------------------------------------
