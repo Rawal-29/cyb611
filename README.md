@@ -205,5 +205,24 @@ We performed side-by-side testing of the two environments. The results demonstra
 | **Access Logging** | ✅ **Enabled** (Sent to Log Bucket) | ⚠️ **CloudTrail Only** | **Forensic Gaps:** We lack detailed server access logs for the vulnerable bucket. |
 
 -----
-\
+## 📊 Security Scoring System
+
+The scanner assigns a **Security Score (0-100)** to each bucket based on the severity of misconfigurations found.
+
+### Weighted Deductions
+* **-40 Points (Critical):** Public Access Block is disabled.
+* **-30 Points (Critical):** Bucket Policy allows wildcard `*` access.
+* **-10 Points (High):** Encryption is disabled.
+* **-10 Points (Medium):** Versioning is suspended.
+* **-5 Points (Low):** SSL is not enforced.
+
+### Risk Grading
+| Score | Grade | Status |
+| :--- | :--- | :--- |
+| **90-100** | **A** | ✅ Secure |
+| **80-89** | **B** | 🟢 Good |
+| **60-79** | **C** | 🟡 At Risk |
+| **40-59** | **D** | 🟠 High Risk |
+| **0-39** | **F** | 🔴 Critical |
+---
 **Maintained by Team Phish & Bits**

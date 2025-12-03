@@ -37,7 +37,8 @@ resource "aws_iam_role_policy" "scanner" {
           "s3:GetBucketPolicy",
           "s3:GetBucketAcl",
           "s3:GetBucketLogging",
-          "s3:GetBucketCORS"
+          "s3:GetBucketCORS",
+          "s3:ListAllMyBuckets"
         ]
         Resource = "*"
       },
