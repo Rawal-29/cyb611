@@ -1,3 +1,58 @@
+# Step 1: Configure Terraform and AWS Provider
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"  # TODO: Change to your preferred region
+}
+
+# Step 2: Create the S3 Bucket
+resource "aws_s3_bucket" "my_bucket" {
+  bucket = "insecure_IAM_bucket"  # TODO: Change to YOUR unique bucket name
+  
+  tags = {
+    Name        = "IAM S3 Bucket"
+    Environment = "Dev"
+    ManagedBy   = "Terraform"
+  }
+}
+
+# Step 3: Enable versioning (optional but recommended)
+resource "aws_s3_bucket_versioning" "my_bucket_versioning" {
+  bucket = aws_s3_bucket.my_bucket.id
+  
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Step 4: Block public access (recommended for security)
+resource "aws_s3_bucket_public_access_block" "my_bucket_pab" {
+  bucket = aws_s3_bucket.my_bucket.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Step 5: Enable server-side encryption (optional but recommended)
+resource "aws_s3_bucket_server_side_encryption_configuration" "my_bucket_encryption" {
+  bucket = aws_s3_bucket.my_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 # ========================================
 # 3. IAM POLICY CONFIGURATION
 # ========================================
