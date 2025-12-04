@@ -27,7 +27,7 @@ resource "aws_s3_bucket" "insecure_bucket2" {
   bucket = "cyb611-secure-phish-bits-public-rw" # NEW misconfigured bucket name
   
   tags = {
-    Name        = "CYB611 Insecure – Public Read/Write"
+    Name        = "CYB611 Insecure - Public Read/Write"
     Environment = "Test"
     Misconfig   = "public-read-write"
   }

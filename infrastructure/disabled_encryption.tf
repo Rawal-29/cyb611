@@ -38,7 +38,7 @@ resource "aws_s3_bucket" "insecure_bucket1" {
   bucket = "cyb611-secure-phish-bits-no-encryption" # YOUR EXISTING BUCKET NAME
 
   tags = {
-    Name        = "CYB611 Insecure – No Encryption"
+    Name        = "CYB611 Insecure - No Encryption"
     Environment = "Test"
     Misconfig   = "no-encryption"
   }
