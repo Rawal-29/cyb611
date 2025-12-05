@@ -1,110 +1,34 @@
-# Step 1: Configure Terraform and AWS Provider
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
+resource "aws_s3_bucket" "b" {
+  bucket = "phishing-iam-misconfig"   
+  acl    = "private"
+
+  versioning {
+    enabled = true
   }
-}
 
-provider "aws" {
-  region = "us-east-1"  # TODO: Change to your preferred region
-}
-
-# Step 2: Create the S3 Bucket
-resource "aws_s3_bucket" "my_bucket" {
-  bucket = "insecure_IAM_bucket"  # TODO: Change to YOUR unique bucket name
-  
   tags = {
-    Name        = "IAM S3 Bucket"
+    Name        = "IAM Misconfig Bucket"
     Environment = "Dev"
-    ManagedBy   = "Terraform"
   }
 }
 
-# Step 3: Enable versioning (optional but recommended)
-resource "aws_s3_bucket_versioning" "my_bucket_versioning" {
-  bucket = aws_s3_bucket.my_bucket.id
-  
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# Step 4: Block public access (recommended for security)
-resource "aws_s3_bucket_public_access_block" "my_bucket_pab" {
-  bucket = aws_s3_bucket.my_bucket.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-# Step 5: Enable server-side encryption (optional but recommended)
-resource "aws_s3_bucket_server_side_encryption_configuration" "my_bucket_encryption" {
-  bucket = aws_s3_bucket.my_bucket.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# ========================================
-# 3. IAM POLICY CONFIGURATION
-# ========================================
-
-# INSECURE: Overly Permissive Policy (Public Read Access)
-resource "aws_s3_bucket" "insecure_policy" {
-  bucket = "insecure-bucket-overly-permissive"
-}
-
-resource "aws_s3_bucket_policy" "insecure" {
-  bucket = aws_s3_bucket.insecure_policy.id
+# Overly permissive IAM policy misconfiguration
+resource "aws_s3_bucket_policy" "overly_permissive_policy" {
+  bucket = aws_s3_bucket.b.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "PublicReadAccess"
-        Effect    = "Allow"
-        Principal = "*"  # DANGER: Anyone can access
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "${aws_s3_bucket.insecure_policy.arn}",
-          "${aws_s3_bucket.insecure_policy.arn}/*"
+        Effect   = "Allow"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [
+          "${aws_s3_bucket.b.arn}",
+          "${aws_s3_bucket.b.arn}/*"
         ]
       }
     ]
   })
 }
 
-# INSECURE: Wildcard Actions
-resource "aws_s3_bucket" "insecure_wildcard" {
-  bucket = "insecure-bucket-wildcard-actions"
-}
-
-resource "aws_s3_bucket_policy" "insecure_wildcard" {
-  bucket = aws_s3_bucket.insecure_wildcard.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "WildcardActions"
-        Effect    = "Allow"
-        Principal = {
-          AWS = "arn:aws:iam::123456789012:user/some-user"
-        }
-        Action   = "s3:*"  # DANGER: All S3 actions allowed
-        Resource = "${aws_s3_bucket.insecure_wildcard.arn}/*"
-      }
-    ]
-  })
-}
