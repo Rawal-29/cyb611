@@ -4,9 +4,8 @@ resource "random_string" "public_id" {
   upper   = false
 }
 
-# 1. LOGGING
 resource "aws_s3_bucket" "public_logs" {
-  bucket = "cyb611-web-logs-${random_string.public_id.result}"
+  bucket = "cyb611-Insecure-public-rw-logs-${random_string.public_id.result}"
   force_destroy = true
 }
 
@@ -23,14 +22,12 @@ resource "aws_s3_bucket_acl" "public_log_acl" {
   acl        = "log-delivery-write"
 }
 
-# 2. DATA BUCKET
 resource "aws_s3_bucket" "public_assets" {
-  bucket = "cyb611-website-assets-${random_string.public_id.result}"
+  bucket = "cyb611-Insecure-public-rw-${random_string.public_id.result}"
   force_destroy = true
   
   tags = {
-    Name        = "Public Web Assets"
-    Environment = "Production"
+    Name = "Insecure Public RW"
   }
 }
 
@@ -95,7 +92,6 @@ resource "aws_s3_bucket_logging" "public_logging_config" {
   target_prefix = "log/"
 }
 
-
 resource "aws_s3_bucket_policy" "public_rw_policy" {
   bucket = aws_s3_bucket.public_assets.id
   depends_on = [aws_s3_bucket_public_access_block.public_block]
@@ -117,7 +113,6 @@ resource "aws_s3_bucket_policy" "public_rw_policy" {
     ]
   })
 }
-
 
 resource "aws_s3_object" "web_asset" {
   bucket       = aws_s3_bucket.public_assets.id

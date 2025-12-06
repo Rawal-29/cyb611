@@ -4,9 +4,8 @@ resource "random_string" "secure_id" {
   upper   = false
 }
 
-# 1. LOGGING STORAGE
 resource "aws_s3_bucket" "access_logs" {
-  bucket = "cyb611-internal-logs-${random_string.secure_id.result}"
+  bucket = "cyb611-Secure-logs-${random_string.secure_id.result}"
   force_destroy = true
 }
 
@@ -23,14 +22,12 @@ resource "aws_s3_bucket_acl" "log_acl" {
   acl        = "log-delivery-write"
 }
 
-# 2. SECURE STORAGE
+
 resource "aws_s3_bucket" "secure_storage" {
-  bucket = "cyb611-finance-backup-${random_string.secure_id.result}"
-  force_destroy = true
-  
+  bucket = "cyb611-Secure-${random_string.secure_id.result}"
+  force_destroy = true  
   tags = {
-    Name        = "Finance Backup"
-    Environment = "Production"
+    Name = "Secure Baseline"
   }
 }
 
@@ -95,7 +92,6 @@ resource "aws_s3_bucket_policy" "enforce_ssl" {
   })
 }
 
-# 3. UPLOAD SAMPLE RECORD
 resource "aws_s3_object" "sample_record" {
   bucket       = aws_s3_bucket.secure_storage.id
   key          = "sensitive_data/mock_pii.csv"
