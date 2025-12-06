@@ -5,7 +5,7 @@ resource "random_string" "secure_id" {
 }
 
 resource "aws_s3_bucket" "access_logs" {
-  bucket = "cyb611-Secure-logs-${random_string.secure_id.result}"
+  bucket = "cyb611-secure-logs-${random_string.secure_id.result}"
   force_destroy = true
 }
 
@@ -22,10 +22,10 @@ resource "aws_s3_bucket_acl" "log_acl" {
   acl        = "log-delivery-write"
 }
 
-
 resource "aws_s3_bucket" "secure_storage" {
-  bucket = "cyb611-Secure-${random_string.secure_id.result}"
-  force_destroy = true  
+  bucket = "cyb611-secure-${random_string.secure_id.result}"
+  force_destroy = true
+  
   tags = {
     Name = "Secure Baseline"
   }

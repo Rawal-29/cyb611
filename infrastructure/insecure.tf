@@ -5,7 +5,7 @@ resource "random_string" "rand_id" {
 }
 
 resource "aws_s3_bucket" "main_bucket" {
-  bucket        = "cyb611-Insecure-misconfigured-${random_string.rand_id.result}"
+  bucket        = "cyb611-insecure-misconfigured-${random_string.rand_id.result}"
   force_destroy = true
   
   tags = {

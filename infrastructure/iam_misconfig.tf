@@ -5,7 +5,7 @@ resource "random_string" "dev_id" {
 }
 
 resource "aws_s3_bucket" "dev_bucket" {
-  bucket        = "cyb611-Insecure-iam-${random_string.dev_id.result}"   
+  bucket        = "cyb611-insecure-iam-${random_string.dev_id.result}"   
   force_destroy = true
 
   tags = {
