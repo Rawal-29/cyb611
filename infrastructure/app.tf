@@ -5,7 +5,7 @@ data "archive_file" "lambda" {
   output_path = "${path.module}/package.zip"
 }
 
-# Role for the Scanner Function
+
 resource "aws_iam_role" "scanner" {
   name = "S3ScannerRole"
   assume_role_policy = jsonencode({
@@ -18,7 +18,7 @@ resource "aws_iam_role" "scanner" {
   })
 }
 
-# Least Privilege Permissions (Read-Only + Logging)
+
 resource "aws_iam_role_policy" "scanner" {
   name = "S3ScannerPolicy"
   role = aws_iam_role.scanner.id
@@ -58,7 +58,6 @@ resource "aws_lambda_function" "scanner" {
   timeout          = 15
 }
 
-# Public Function URL (No Auth required for testing)
 resource "aws_lambda_function_url" "scanner" {
   function_name      = aws_lambda_function.scanner.function_name
   authorization_type = "NONE"

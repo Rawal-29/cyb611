@@ -1,60 +1,56 @@
-# ---------------------------------------------------------
-# 1. LOGGING BUCKET (for this misconfigured bucket)
-# ---------------------------------------------------------
-resource "aws_s3_bucket" "log_bucket_public_rw" {
-  bucket = "cyb611-secure-phish-bits-public-rw-logs" # MUST be globally unique
+resource "random_string" "public_id" {
+  length  = 6
+  special = false
+  upper   = false
 }
 
-resource "aws_s3_bucket_ownership_controls" "log_public_rw_ownership" {
-  bucket = aws_s3_bucket.log_bucket_public_rw.id
+# 1. LOGGING
+resource "aws_s3_bucket" "public_logs" {
+  bucket = "cyb611-web-logs-${random_string.public_id.result}"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "public_log_ownership" {
+  bucket = aws_s3_bucket.public_logs.id
   rule {
     object_ownership = "BucketOwnerPreferred"
   }
 }
 
-resource "aws_s3_bucket_acl" "log_public_rw_acl" {
-  depends_on = [aws_s3_bucket_ownership_controls.log_public_rw_ownership]
-  bucket     = aws_s3_bucket.log_bucket_public_rw.id
+resource "aws_s3_bucket_acl" "public_log_acl" {
+  depends_on = [aws_s3_bucket_ownership_controls.public_log_ownership]
+  bucket     = aws_s3_bucket.public_logs.id
   acl        = "log-delivery-write"
 }
 
-
-
-# ---------------------------------------------------------
-# 2. INSECURE DATA BUCKET – PUBLIC READ/WRITE
-# ---------------------------------------------------------
-resource "aws_s3_bucket" "insecure_bucket2" {
-  bucket = "cyb611-secure-phish-bits-public-rw" # NEW misconfigured bucket name
+# 2. DATA BUCKET
+resource "aws_s3_bucket" "public_assets" {
+  bucket = "cyb611-website-assets-${random_string.public_id.result}"
+  force_destroy = true
   
   tags = {
-    Name        = "CYB611 Insecure - Public Read/Write"
-    Environment = "Test"
-    Misconfig   = "public-read-write"
+    Name        = "Public Web Assets"
+    Environment = "Production"
   }
 }
 
-# Public access block misconfigured to allow public policies & access
-resource "aws_s3_bucket_public_access_block" "public_rw_block" {
-  bucket = aws_s3_bucket.insecure_bucket2.id
-
-  # Loosened settings to permit public access
+resource "aws_s3_bucket_public_access_block" "public_block" {
+  bucket = aws_s3_bucket.public_assets.id
   block_public_acls       = false
   block_public_policy     = false
   ignore_public_acls      = false
   restrict_public_buckets = false
 }
 
-# Ownership controls (still enabled, like secure baseline)
-resource "aws_s3_bucket_ownership_controls" "public_rw_ownership" {
-  bucket = aws_s3_bucket.insecure_bucket2.id
+resource "aws_s3_bucket_ownership_controls" "public_ownership" {
+  bucket = aws_s3_bucket.public_assets.id
   rule {
     object_ownership = "BucketOwnerEnforced"
   }
 }
-# Encryption controls (still enabled, like secure baseline)
-resource "aws_s3_bucket_server_side_encryption_configuration" "public_rw_encryption" {
-  bucket = aws_s3_bucket.insecure_bucket2.id
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "public_enc" {
+  bucket = aws_s3_bucket.public_assets.id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -62,33 +58,27 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "public_rw_encrypt
   }
 }
 
-# Versioning (kept, like secure baseline)
-resource "aws_s3_bucket_versioning" "public_rw_versioning" {
-  bucket = aws_s3_bucket.insecure_bucket2.id
+resource "aws_s3_bucket_versioning" "public_versioning" {
+  bucket = aws_s3_bucket.public_assets.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-
-# ---------------------------------------------------------
-# ENFORCE HTTPS (TLS)-still enabled, like secure baseline
-# ---------------------------------------------------------
-resource "aws_s3_bucket_policy" "public_rw_enforce_tls" {
-  bucket = aws_s3_bucket.insecure_bucket2.id
-
+resource "aws_s3_bucket_policy" "enforce_tls_public" {
+  bucket = aws_s3_bucket.public_assets.id
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Sid       = "DenyInsecureTransport"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:*"
+        Sid       = "DenyInsecureTransport",
+        Effect    = "Deny",
+        Principal = "*",
+        Action    = "s3:*",
         Resource  = [
-          aws_s3_bucket.insecure_bucket2.arn,
-          "${aws_s3_bucket.insecure_bucket2.arn}/*",
-        ]
+          aws_s3_bucket.public_assets.arn,
+          "${aws_s3_bucket.public_assets.arn}/*",
+        ],
         Condition = {
           Bool = {
             "aws:SecureTransport" = "false"
@@ -99,39 +89,40 @@ resource "aws_s3_bucket_policy" "public_rw_enforce_tls" {
   })
 }
 
-
-
-# ---------------------------------------------------------
-# 3. ENABLE ACCESS LOGGING FOR THE MISCONFIGURED BUCKET
-# ---------------------------------------------------------
-resource "aws_s3_bucket_logging" "public_rw_logging" {
-  bucket        = aws_s3_bucket.insecure_bucket2.id
-  target_bucket = aws_s3_bucket.log_bucket_public_rw.id
+resource "aws_s3_bucket_logging" "public_logging_config" {
+  bucket        = aws_s3_bucket.public_assets.id
+  target_bucket = aws_s3_bucket.public_logs.id
   target_prefix = "log/"
 }
 
-# ---------------------------------------------------------
-# 4. PUBLIC READ/WRITE BUCKET POLICY
-# ---------------------------------------------------------
+
 resource "aws_s3_bucket_policy" "public_rw_policy" {
-  bucket = aws_s3_bucket.insecure_bucket2.id
+  bucket = aws_s3_bucket.public_assets.id
+  depends_on = [aws_s3_bucket_public_access_block.public_block]
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Sid       = "PublicReadWrite"
-        Effect    = "Allow"
-        Principal = "*"
+        Sid       = "PublicReadWrite",
+        Effect    = "Allow",
+        Principal = "*",
         Action    = [
           "s3:GetObject",
           "s3:PutObject",
           "s3:PutObjectAcl"
         ]
-        Resource = "${aws_s3_bucket.insecure_bucket2.arn}/*"
+        Resource = "${aws_s3_bucket.public_assets.arn}/*"
       }
     ]
   })
+}
 
-  depends_on = [aws_s3_bucket_public_access_block.public_rw_block]
+
+resource "aws_s3_object" "web_asset" {
+  bucket       = aws_s3_bucket.public_assets.id
+  key          = "sensitive_data/mock_pii.csv"
+  content_type = "text/csv"
+  content      = "id,secret\n1,PublicData"
+  depends_on   = [aws_s3_bucket_policy.public_rw_policy]
 }

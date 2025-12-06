@@ -1,33 +1,63 @@
-resource "aws_s3_bucket" "b" {
-  bucket = "phishing-iam-testing-1234"   
-  acl    = "private"
+resource "random_string" "dev_id" {
+  length  = 6
+  special = false
+  upper   = false
+}
 
-  versioning {
-    enabled = true
-  }
-
+resource "aws_s3_bucket" "dev_bucket" {
+  bucket        = "cyb611-dev-scratchpad-${random_string.dev_id.result}"   
+  force_destroy = true
   tags = {
-    Name        = "iam Misconfig Bucket"
-    Environment = "Dev"
+    Name        = "Dev Scratchpad"
+    Environment = "Development"
   }
 }
 
-# Overly permissive IAM policy misconfiguration
-resource "aws_s3_bucket_policy" "overly_permissive_policy" {
-  bucket = aws_s3_bucket.b.id
+
+resource "aws_s3_bucket_versioning" "dev_versioning" {
+  bucket = aws_s3_bucket.dev_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+
+resource "aws_s3_bucket_ownership_controls" "dev_ownership" {
+  bucket = aws_s3_bucket.dev_bucket.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "dev_acl" {
+  depends_on = [aws_s3_bucket_ownership_controls.dev_ownership]
+  bucket     = aws_s3_bucket.dev_bucket.id
+  acl        = "private"
+}
+
+resource "aws_s3_bucket_policy" "dev_policy" {
+  bucket = aws_s3_bucket.dev_bucket.id
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow"
+        Effect    = "Allow"
         Principal = "*"
         Action    = "s3:*"
         Resource  = [
-          "${aws_s3_bucket.b.arn}",
-          "${aws_s3_bucket.b.arn}/*"
+          "${aws_s3_bucket.dev_bucket.arn}",
+          "${aws_s3_bucket.dev_bucket.arn}/*"
         ]
       }
     ]
   })
+}
+
+# UPLOAD CONFIG
+resource "aws_s3_object" "initial_config" {
+  bucket       = aws_s3_bucket.dev_bucket.id
+  key          = "sensitive_data/mock_pii.csv"
+  content_type = "text/csv"
+  content      = "id,secret\n1,DevData"
 }
