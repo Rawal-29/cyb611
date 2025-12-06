@@ -5,7 +5,7 @@ resource "random_string" "legacy_id" {
 }
 
 resource "aws_s3_bucket" "legacy_logs" {
-  bucket = "cyb611-Insecure-no-encryption-logs-${random_string.legacy_id.result}"
+  bucket = "cyb611-insecure-no-encryption-logs-${random_string.legacy_id.result}"
   force_destroy = true
 }
 
@@ -31,7 +31,7 @@ resource "aws_s3_bucket_public_access_block" "log_block" {
 }
 
 resource "aws_s3_bucket" "legacy_data" {
-  bucket = "cyb611-Insecure-no-encryption-${random_string.legacy_id.result}"
+  bucket = "cyb611-insecure-no-encryption-${random_string.legacy_id.result}"
   force_destroy = true
   
   tags = {

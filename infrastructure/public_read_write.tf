@@ -5,7 +5,7 @@ resource "random_string" "public_id" {
 }
 
 resource "aws_s3_bucket" "public_logs" {
-  bucket = "cyb611-Insecure-public-rw-logs-${random_string.public_id.result}"
+  bucket = "cyb611-insecure-public-rw-logs-${random_string.public_id.result}"
   force_destroy = true
 }
 
@@ -23,7 +23,7 @@ resource "aws_s3_bucket_acl" "public_log_acl" {
 }
 
 resource "aws_s3_bucket" "public_assets" {
-  bucket = "cyb611-Insecure-public-rw-${random_string.public_id.result}"
+  bucket = "cyb611-insecure-public-rw-${random_string.public_id.result}"
   force_destroy = true
   
   tags = {
