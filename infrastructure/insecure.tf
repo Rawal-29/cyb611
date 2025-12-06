@@ -4,18 +4,15 @@ resource "random_string" "rand_id" {
   upper   = false
 }
 
-# 1. PRIMARY BUCKET
 resource "aws_s3_bucket" "main_bucket" {
-  bucket        = "cyb611-marketing-assets-${random_string.rand_id.result}"
+  bucket        = "cyb611-Insecure-misconfigured-${random_string.rand_id.result}"
   force_destroy = true
   
   tags = {
-    Name        = "Marketing Assets"
-    Environment = "Production"
+    Name = "Insecure Misconfigured"
   }
 }
 
-# 2. PUBLIC ACCESS CONFIGURATION
 resource "aws_s3_bucket_public_access_block" "public_access" {
   bucket = aws_s3_bucket.main_bucket.id
 
@@ -25,7 +22,6 @@ resource "aws_s3_bucket_public_access_block" "public_access" {
   restrict_public_buckets = false
 }
 
-# 3. OWNERSHIP CONTROLS
 resource "aws_s3_bucket_ownership_controls" "ownership" {
   bucket = aws_s3_bucket.main_bucket.id
   rule {
@@ -43,7 +39,6 @@ resource "aws_s3_bucket_acl" "bucket_acl" {
   ]
 }
 
-# 4. VERSIONING
 resource "aws_s3_bucket_versioning" "versioning" {
   bucket = aws_s3_bucket.main_bucket.id
   versioning_configuration {
@@ -51,7 +46,6 @@ resource "aws_s3_bucket_versioning" "versioning" {
   }
 }
 
-# 5. BUCKET POLICY
 resource "aws_s3_bucket_policy" "read_policy" {
   bucket = aws_s3_bucket.main_bucket.id
   depends_on = [aws_s3_bucket_public_access_block.public_access]
@@ -70,7 +64,6 @@ resource "aws_s3_bucket_policy" "read_policy" {
   })
 }
 
-# 6. CORS CONFIG
 resource "aws_s3_bucket_cors_configuration" "cors_config" {
   bucket = aws_s3_bucket.main_bucket.id
 
@@ -83,7 +76,6 @@ resource "aws_s3_bucket_cors_configuration" "cors_config" {
   }
 }
 
-# 7. UPLOAD INITIAL DATASET
 resource "aws_s3_object" "dataset_upload" {
   bucket       = aws_s3_bucket.main_bucket.id
   key          = "sensitive_data/mock_pii.csv"

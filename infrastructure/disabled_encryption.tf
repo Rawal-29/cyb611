@@ -4,9 +4,8 @@ resource "random_string" "legacy_id" {
   upper   = false
 }
 
-
 resource "aws_s3_bucket" "legacy_logs" {
-  bucket = "cyb611-archive-logs-${random_string.legacy_id.result}"
+  bucket = "cyb611-Insecure-no-encryption-logs-${random_string.legacy_id.result}"
   force_destroy = true
 }
 
@@ -31,14 +30,12 @@ resource "aws_s3_bucket_public_access_block" "log_block" {
   restrict_public_buckets = true
 }
 
-
 resource "aws_s3_bucket" "legacy_data" {
-  bucket = "cyb611-legacy-archive-${random_string.legacy_id.result}"
+  bucket = "cyb611-Insecure-no-encryption-${random_string.legacy_id.result}"
   force_destroy = true
-
+  
   tags = {
-    Name        = "Legacy Archive"
-    Environment = "Staging"
+    Name = "Insecure No Encryption"
   }
 }
 
@@ -74,7 +71,6 @@ resource "aws_s3_bucket_logging" "legacy_logging_config" {
     aws_s3_bucket_public_access_block.log_block
   ]
 }
-
 
 resource "aws_s3_object" "archive_file" {
   bucket       = aws_s3_bucket.legacy_data.id

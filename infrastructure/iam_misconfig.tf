@@ -5,14 +5,22 @@ resource "random_string" "dev_id" {
 }
 
 resource "aws_s3_bucket" "dev_bucket" {
-  bucket        = "cyb611-dev-scratchpad-${random_string.dev_id.result}"   
+  bucket        = "cyb611-Insecure-iam-${random_string.dev_id.result}"   
   force_destroy = true
+
   tags = {
-    Name        = "Dev Scratchpad"
-    Environment = "Development"
+    Name = "Insecure IAM"
   }
 }
 
+resource "aws_s3_bucket_public_access_block" "dev_unsafe" {
+  bucket = aws_s3_bucket.dev_bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
 
 resource "aws_s3_bucket_versioning" "dev_versioning" {
   bucket = aws_s3_bucket.dev_bucket.id
@@ -20,7 +28,6 @@ resource "aws_s3_bucket_versioning" "dev_versioning" {
     status = "Enabled"
   }
 }
-
 
 resource "aws_s3_bucket_ownership_controls" "dev_ownership" {
   bucket = aws_s3_bucket.dev_bucket.id
@@ -37,12 +44,13 @@ resource "aws_s3_bucket_acl" "dev_acl" {
 
 resource "aws_s3_bucket_policy" "dev_policy" {
   bucket = aws_s3_bucket.dev_bucket.id
+  depends_on = [aws_s3_bucket_public_access_block.dev_unsafe]
 
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Effect    = "Allow"
+        Effect    = "Allow",
         Principal = "*"
         Action    = "s3:*"
         Resource  = [
@@ -54,7 +62,6 @@ resource "aws_s3_bucket_policy" "dev_policy" {
   })
 }
 
-# UPLOAD CONFIG
 resource "aws_s3_object" "initial_config" {
   bucket       = aws_s3_bucket.dev_bucket.id
   key          = "sensitive_data/mock_pii.csv"
