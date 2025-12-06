@@ -2,73 +2,85 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 
-# Initialize S3 client (Warm Start optimization)
-s3 = boto3.client('s3')
 
-# ---------------------------------------------------------
-# SCORING CONFIGURATION (Weighted Risk)
-# ---------------------------------------------------------
-SCORE_WEIGHTS = {
-    "public_block": 40,    # CRITICAL: Public exposure
-    "policy_wildcard": 30, # CRITICAL: Global access allowed
-    "encryption": 10,      # HIGH: Data protection
-    "versioning": 10,      # MEDIUM: Data integrity
-    "ssl_enforcement": 5,  # LOW: Network security
-    "logging": 5           # LOW: Forensics
-}
+s3 = boto3.client('s3')
 
 def lambda_handler(event, context):
     """
     Main Entry Point.
-    Route 1: /?bucket=name -> Detailed Audit (with Remediation)
-    Route 2: /             -> Dashboard View (All Buckets, Scores Only)
+    Supported Routes:
+    1. /?bucket=NAME       -> Deep dive one bucket (with remediation)
+    2. /?buckets=A,B,C     -> Scan specific list (dashboard view)
+    3. /?filter=cyb611     -> Scan all matching filter (dashboard view)
+    4. /                   -> Scan EVERYTHING (dashboard view)
     """
     try:
-        query_params = event.get('queryStringParameters') or {}
-        bucket_name = query_params.get('bucket')
-
-        if bucket_name:
-            # Route 1: Scan specific bucket
-            report = perform_security_audit(bucket_name, include_remediation=True)
+        params = event.get('queryStringParameters') or {}
+        if params.get('bucket'):
+            report = perform_security_audit(params['bucket'], include_remediation=True)
             return create_response(200, report)
+        
+        elif params.get('buckets'):
+            target_list = [b.strip() for b in params['buckets'].split(',')]
+            summary = scan_list_of_buckets(target_list)
+            return create_response(200, summary)
+            
         else:
-            # Route 2: Scan all project buckets
-            summary = scan_all_buckets()
+            name_filter = params.get('filter')
+            summary = scan_all_buckets(name_filter)
             return create_response(200, summary)
 
     except Exception as e:
         return create_response(500, {"error": f"Internal Error: {str(e)}"})
 
 def create_response(status, body):
-    """Helper to format JSON response with CORS headers."""
     return {
         "statusCode": status,
         "headers": {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET"
+            "Access-Control-Allow-Origin": "*"
         },
         "body": json.dumps(body)
     }
 
-def scan_all_buckets():
-    """Lists all buckets, filters for project 'cyb611', and generates scores."""
+def scan_list_of_buckets(bucket_names):
+    results = []
+    for name in bucket_names:
+        # Check if bucket exists/is accessible before scanning
+        try:
+            s3.head_bucket(Bucket=name)
+            results.append(perform_security_audit(name, include_remediation=False))
+        except ClientError:
+            results.append({"bucket_name": name, "error": "Access Denied or Not Found"})
+            
+    return {
+        "dashboard_title": "Targeted Compliance Scan",
+        "total_scanned": len(results),
+        "buckets": results
+    }
+
+def scan_all_buckets(name_filter=None):
     try:
         all_buckets = s3.list_buckets()
-        project_buckets = []
+        results = []
         
         for b in all_buckets['Buckets']:
             name = b['Name']
-            # Filter: Only scan buckets related to this project
-            if "cyb611" in name:
-                # Run audit WITHOUT remediation details to keep it clean
-                audit = perform_security_audit(name, include_remediation=False)
-                project_buckets.append(audit)
+            # Apply filter if provided
+            if name_filter and name_filter not in name:
+                continue
+            
+            # Skip infrastructure buckets (State/Logs) to keep dashboard clean
+            if "state" in name or "log" in name:
+                continue
+
+            results.append(perform_security_audit(name, include_remediation=False))
         
+        title = f"Account Scan ({name_filter})" if name_filter else "Full Account Scan"
         return {
-            "dashboard_title": "CYB611 Security Posture Dashboard",
-            "total_scanned": len(project_buckets),
-            "buckets": project_buckets
+            "dashboard_title": title,
+            "total_scanned": len(results),
+            "buckets": results
         }
     except Exception as e:
         return {"error": f"Failed to list buckets: {str(e)}"}
@@ -81,126 +93,107 @@ def calculate_grade(score):
     return "F (Critical)"
 
 def perform_security_audit(bucket_name, include_remediation=True):
-    """Executes 7 security checks and calculates a risk score."""
-    
     current_score = 100
-    report = {
-        "target_bucket": bucket_name,
-        "scan_type": "Automated Security Compliance Audit",
-        "tests": []
-    }
+    findings = []
+    is_publically_exposed = False
 
-    # Helper to add test results
-    def add_result(control, status, details, remediation_text, weight_key=None):
-        nonlocal current_score
-        if status != "PASS" and weight_key:
-            current_score -= SCORE_WEIGHTS.get(weight_key, 0)
-        
-        test_entry = {
-            "control": control,
-            "status": status,
-            "details": details
-        }
-        if include_remediation and status != "PASS":
-            test_entry["remediation"] = remediation_text
-        
-        report["tests"].append(test_entry)
-
-    # 1. Public Access Block
+    # 1. Check Public Access Block (The Gatekeeper)
     try:
         conf = s3.get_public_access_block(Bucket=bucket_name)['PublicAccessBlockConfiguration']
-        if all(conf.values()):
-            add_result("1. Public Access Block", "PASS", "Secure. All settings active.", "")
+        if not all(conf.values()):
+            is_publically_exposed = True
+            current_score -= 40 
+            findings.append({"control": "1. Public Access Block", "status": "FAIL", "details": "Guardrails disabled."})
         else:
-            add_result("1. Public Access Block", "FAIL", f"Vulnerable. Settings: {conf}", 
-                       "Enable 'Block all public access' in Permissions.", "public_block")
+            findings.append({"control": "1. Public Access Block", "status": "PASS", "details": "Active."})
     except ClientError:
-        add_result("1. Public Access Block", "FAIL", "No Configuration Found.", 
-                   "Enable 'Block all public access' in Permissions.", "public_block")
+        is_publically_exposed = True
+        current_score -= 40
+        findings.append({"control": "1. Public Access Block", "status": "FAIL", "details": "No config found."})
 
-    # 2. Encryption
-    try:
-        enc = s3.get_bucket_encryption(Bucket=bucket_name)
-        rules = enc['ServerSideEncryptionConfiguration']['Rules']
-        algo = rules[0]['ApplyServerSideEncryptionByDefault']['SSEAlgorithm']
-        if algo == 'aws:kms':
-            add_result("2. Data Encryption", "PASS", "Secure (SSE-KMS).", "")
-        else:
-            add_result("2. Data Encryption", "WARN", f"Weak. Using default '{algo}'.", 
-                       "Upgrade to SSE-KMS for better control.", "encryption")
-    except ClientError:
-        add_result("2. Data Encryption", "FAIL", "Unencrypted (Plain Text).", 
-                   "Enable Default Encryption in Properties.", "encryption")
-
-    # 3. Policy Wildcards
+    # 2. Check Bucket Policy (Context-Aware)
     try:
         policy = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
         if '"Principal": "*"' in policy.replace(" ", "") and '"Effect": "Allow"' in policy:
-            add_result("3. Permission Scope", "FAIL", "CRITICAL: Global Wildcard (*) Allow found.", 
-                       "Remove statements allowing access to '*'.", "policy_wildcard")
+            if is_publically_exposed:
+                current_score -= 30 
+                findings.append({"control": "2. Bucket Policy", "status": "FAIL", "details": "Global Wildcard (*)."})
+            else:
+                findings.append({"control": "2. Bucket Policy", "status": "WARN", "details": "Mitigated: Wildcard Policy exists, but blocked."})
         else:
-            add_result("3. Permission Scope", "PASS", "Secure. No global wildcards.", "")
+            findings.append({"control": "2. Bucket Policy", "status": "PASS", "details": "Secure."})
     except ClientError:
-        # No policy is neutral/safe by default (unless ACLs are open)
-        add_result("3. Permission Scope", "PASS", "No Bucket Policy (Default Private).", "")
+        findings.append({"control": "2. Bucket Policy", "status": "PASS", "details": "Default."})
 
-    # 4. SSL Enforcement
+    # 3. Check CORS (Context-Aware)
     try:
-        policy = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
-        if '"aws:SecureTransport": "false"' in policy.replace(" ", ""):
-            add_result("4. SSL/TLS Enforcement", "PASS", "Secure. HTTP denied.", "")
+        cors = s3.get_bucket_cors(Bucket=bucket_name)
+        has_wildcard = any('*' in r.get('AllowedOrigins', []) for r in cors['CORSRules'])
+        if has_wildcard:
+            if is_publically_exposed:
+                current_score -= 10 
+                findings.append({"control": "3. CORS", "status": "FAIL", "details": "Insecure Wildcard (*)."})
+            else:
+                findings.append({"control": "3. CORS", "status": "WARN", "details": "Mitigated: Wildcard CORS."})
         else:
-            add_result("4. SSL/TLS Enforcement", "WARN", "HTTP allowed (No Deny Policy).", 
-                       "Add Bucket Policy to deny non-SSL transport.", "ssl_enforcement")
+            findings.append({"control": "3. CORS", "status": "PASS", "details": "Secure."})
     except:
-        add_result("4. SSL/TLS Enforcement", "WARN", "HTTP allowed (No Policy).", 
-                   "Add Bucket Policy to deny non-SSL transport.", "ssl_enforcement")
+        findings.append({"control": "3. CORS", "status": "PASS", "details": "Default."})
 
-    # 5. Versioning
+    # 4. Check Encryption (Independent Risk)
+    try:
+        s3.get_bucket_encryption(Bucket=bucket_name)
+        findings.append({"control": "4. Encryption", "status": "PASS", "details": "Enabled."})
+    except ClientError:
+        current_score -= 10
+        findings.append({"control": "4. Encryption", "status": "FAIL", "details": "Unencrypted."})
+
+    # 5. Check Versioning (Independent Risk)
     try:
         ver = s3.get_bucket_versioning(Bucket=bucket_name)
         if ver.get('Status') == 'Enabled':
-            add_result("5. Data Integrity", "PASS", "Versioning Enabled.", "")
+            findings.append({"control": "5. Versioning", "status": "PASS", "details": "Enabled."})
         else:
-            add_result("5. Data Integrity", "FAIL", "Versioning Disabled/Suspended.", 
-                       "Enable Bucket Versioning in Properties.", "versioning")
+            current_score -= 10
+            findings.append({"control": "5. Versioning", "status": "FAIL", "details": "Disabled."})
     except:
-        add_result("5. Data Integrity", "FAIL", "Unknown State.", "Enable Versioning.", "versioning")
+        current_score -= 10
+        findings.append({"control": "5. Versioning", "status": "FAIL", "details": "Disabled."})
 
-    # 6. Presigned URL (Simulation)
-    # Note: We don't deduct points here as it's a capability check, not a config error
-    add_result("6. Presigned URL Config", "WARN", "Simulation: 7-day URL generation possible.", 
-               "Restrict IAM 's3:signatureAge' if needed.")
+    # 6. SSL Enforcement
+    try:
+        policy = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
+        if '"aws:SecureTransport": "false"' in policy.replace(" ", ""):
+            findings.append({"control": "6. SSL Enforcement", "status": "PASS", "details": "Enforced."})
+        else:
+            current_score -= 5
+            findings.append({"control": "6. SSL Enforcement", "status": "WARN", "details": "Not Enforced."})
+    except:
+        current_score -= 5
+        findings.append({"control": "6. SSL Enforcement", "status": "WARN", "details": "Not Enforced."})
 
-    # 7. Logging & CORS
+    # 7. Logging Check
     try:
         logs = s3.get_bucket_logging(Bucket=bucket_name)
-        cors = {}
-        try: 
-            cors = s3.get_bucket_cors(Bucket=bucket_name) 
-        except: 
-            pass
-
-        issues = []
-        if 'LoggingEnabled' not in logs:
-            issues.append("Logging Disabled")
-        
-        cors_rules = cors.get('CORSRules', [])
-        for r in cors_rules:
-            if '*' in r.get('AllowedOrigins', []):
-                issues.append("CORS Wildcard (*)")
-        
-        if not issues:
-            add_result("7. Logging & CORS", "PASS", "Logging On & CORS Restricted.", "")
+        if 'LoggingEnabled' in logs:
+            findings.append({"control": "7. Logging", "status": "PASS", "details": "Enabled."})
         else:
-            add_result("7. Logging & CORS", "FAIL", " | ".join(issues), 
-                       "Enable Logging and restrict CORS origins.", "logging")
+            current_score -= 5
+            findings.append({"control": "7. Logging", "status": "WARN", "details": "Disabled."})
     except:
         pass
 
-    # Final Calculation
     final_score = max(0, current_score)
-    report["security_score"] = f"{final_score}/100"
-    report["risk_grade"] = calculate_grade(final_score)
+    
+    report = {
+        "bucket_name": bucket_name,
+        "security_score": f"{final_score}/100",
+        "risk_grade": calculate_grade(final_score),
+        "access_type": "Public" if is_publically_exposed else "Private",
+        "tests": findings
+    }
+    
+    if include_remediation and final_score < 100:
+        report["remediation_note"] = "Please review failed controls in AWS Console."
 
     return report
