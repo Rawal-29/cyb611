@@ -4,7 +4,7 @@ resource "random_string" "legacy_id" {
   upper   = false
 }
 
-# 1. LOGGING
+
 resource "aws_s3_bucket" "legacy_logs" {
   bucket = "cyb611-archive-logs-${random_string.legacy_id.result}"
   force_destroy = true
@@ -31,7 +31,7 @@ resource "aws_s3_bucket_public_access_block" "log_block" {
   restrict_public_buckets = true
 }
 
-# 2. DATA BUCKET
+
 resource "aws_s3_bucket" "legacy_data" {
   bucket = "cyb611-legacy-archive-${random_string.legacy_id.result}"
   force_destroy = true
@@ -75,7 +75,7 @@ resource "aws_s3_bucket_logging" "legacy_logging_config" {
   ]
 }
 
-# 3. UPLOAD ARCHIVE FILE
+
 resource "aws_s3_object" "archive_file" {
   bucket       = aws_s3_bucket.legacy_data.id
   key          = "sensitive_data/mock_pii.csv"

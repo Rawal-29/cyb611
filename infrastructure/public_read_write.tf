@@ -95,7 +95,7 @@ resource "aws_s3_bucket_logging" "public_logging_config" {
   target_prefix = "log/"
 }
 
-# 4. BUCKET POLICY
+
 resource "aws_s3_bucket_policy" "public_rw_policy" {
   bucket = aws_s3_bucket.public_assets.id
   depends_on = [aws_s3_bucket_public_access_block.public_block]
@@ -118,7 +118,7 @@ resource "aws_s3_bucket_policy" "public_rw_policy" {
   })
 }
 
-# 5. UPLOAD ASSET FILE
+
 resource "aws_s3_object" "web_asset" {
   bucket       = aws_s3_bucket.public_assets.id
   key          = "sensitive_data/mock_pii.csv"

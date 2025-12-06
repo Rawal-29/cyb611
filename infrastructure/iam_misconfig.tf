@@ -6,17 +6,33 @@ resource "random_string" "dev_id" {
 
 resource "aws_s3_bucket" "dev_bucket" {
   bucket        = "cyb611-dev-scratchpad-${random_string.dev_id.result}"   
-  acl           = "private"
   force_destroy = true
-
-  versioning {
-    enabled = true
-  }
-
   tags = {
     Name        = "Dev Scratchpad"
     Environment = "Development"
   }
+}
+
+
+resource "aws_s3_bucket_versioning" "dev_versioning" {
+  bucket = aws_s3_bucket.dev_bucket.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+
+resource "aws_s3_bucket_ownership_controls" "dev_ownership" {
+  bucket = aws_s3_bucket.dev_bucket.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "dev_acl" {
+  depends_on = [aws_s3_bucket_ownership_controls.dev_ownership]
+  bucket     = aws_s3_bucket.dev_bucket.id
+  acl        = "private"
 }
 
 resource "aws_s3_bucket_policy" "dev_policy" {
