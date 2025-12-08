@@ -2,18 +2,9 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 
-
 s3 = boto3.client('s3')
 
 def lambda_handler(event, context):
-    """
-    Main Entry Point.
-    Supported Routes:
-    1. /?bucket=NAME       -> Deep dive one bucket (with remediation)
-    2. /?buckets=A,B,C     -> Scan specific list (dashboard view)
-    3. /?filter=cyb611     -> Scan all matching filter (dashboard view)
-    4. /                   -> Scan EVERYTHING (dashboard view)
-    """
     try:
         params = event.get('queryStringParameters') or {}
         if params.get('bucket'):
@@ -46,7 +37,6 @@ def create_response(status, body):
 def scan_list_of_buckets(bucket_names):
     results = []
     for name in bucket_names:
-        # Check if bucket exists/is accessible before scanning
         try:
             s3.head_bucket(Bucket=name)
             results.append(perform_security_audit(name, include_remediation=False))
@@ -66,11 +56,9 @@ def scan_all_buckets(name_filter=None):
         
         for b in all_buckets['Buckets']:
             name = b['Name']
-            # Apply filter if provided
             if name_filter and name_filter not in name:
                 continue
             
-            # Skip infrastructure buckets (State/Logs) to keep dashboard clean
             if "state" in name or "log" in name:
                 continue
 
@@ -97,7 +85,6 @@ def perform_security_audit(bucket_name, include_remediation=True):
     findings = []
     is_publically_exposed = False
 
-    # 1. Check Public Access Block (The Gatekeeper)
     try:
         conf = s3.get_public_access_block(Bucket=bucket_name)['PublicAccessBlockConfiguration']
         if not all(conf.values()):
@@ -111,10 +98,9 @@ def perform_security_audit(bucket_name, include_remediation=True):
         current_score -= 40
         findings.append({"control": "1. Public Access Block", "status": "FAIL", "details": "No config found."})
 
-    # 2. Check Bucket Policy (Context-Aware)
     try:
-        policy = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
-        if '"Principal": "*"' in policy.replace(" ", "") and '"Effect": "Allow"' in policy:
+        policy_str = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
+        if '"Principal": "*"' in policy_str.replace(" ", "") and '"Effect": "Allow"' in policy_str:
             if is_publically_exposed:
                 current_score -= 30 
                 findings.append({"control": "2. Bucket Policy", "status": "FAIL", "details": "Global Wildcard (*)."})
@@ -125,7 +111,6 @@ def perform_security_audit(bucket_name, include_remediation=True):
     except ClientError:
         findings.append({"control": "2. Bucket Policy", "status": "PASS", "details": "Default."})
 
-    # 3. Check CORS (Context-Aware)
     try:
         cors = s3.get_bucket_cors(Bucket=bucket_name)
         has_wildcard = any('*' in r.get('AllowedOrigins', []) for r in cors['CORSRules'])
@@ -140,15 +125,13 @@ def perform_security_audit(bucket_name, include_remediation=True):
     except:
         findings.append({"control": "3. CORS", "status": "PASS", "details": "Default."})
 
-    # 4. Check Encryption (Independent Risk)
     try:
         s3.get_bucket_encryption(Bucket=bucket_name)
-        findings.append({"control": "4. Encryption", "status": "PASS", "details": "Enabled."})
+        findings.append({"control": "4. Encryption", "status": "PASS", "details": "Enabled (Explicit)."})
     except ClientError:
         current_score -= 10
-        findings.append({"control": "4. Encryption", "status": "FAIL", "details": "Unencrypted."})
+        findings.append({"control": "4. Encryption", "status": "FAIL", "details": "Missing Explicit Config."})
 
-    # 5. Check Versioning (Independent Risk)
     try:
         ver = s3.get_bucket_versioning(Bucket=bucket_name)
         if ver.get('Status') == 'Enabled':
@@ -160,10 +143,18 @@ def perform_security_audit(bucket_name, include_remediation=True):
         current_score -= 10
         findings.append({"control": "5. Versioning", "status": "FAIL", "details": "Disabled."})
 
-    # 6. SSL Enforcement
     try:
-        policy = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
-        if '"aws:SecureTransport": "false"' in policy.replace(" ", ""):
+        policy_str = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
+        policy_json = json.loads(policy_str)
+        ssl_secure = False
+        
+        for stmt in policy_json.get('Statement', []):
+            cond_bool = stmt.get('Condition', {}).get('Bool', {})
+            if str(cond_bool.get('aws:SecureTransport', '')).lower() == 'false' and stmt.get('Effect') == 'Deny':
+                ssl_secure = True
+                break
+                
+        if ssl_secure:
             findings.append({"control": "6. SSL Enforcement", "status": "PASS", "details": "Enforced."})
         else:
             current_score -= 5
@@ -172,7 +163,6 @@ def perform_security_audit(bucket_name, include_remediation=True):
         current_score -= 5
         findings.append({"control": "6. SSL Enforcement", "status": "WARN", "details": "Not Enforced."})
 
-    # 7. Logging Check
     try:
         logs = s3.get_bucket_logging(Bucket=bucket_name)
         if 'LoggingEnabled' in logs:
