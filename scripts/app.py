@@ -85,6 +85,7 @@ def perform_security_audit(bucket_name, include_remediation=True):
     findings = []
     is_publically_exposed = False
 
+    # 1. Public Access Block (-40)
     try:
         conf = s3.get_public_access_block(Bucket=bucket_name)['PublicAccessBlockConfiguration']
         if not all(conf.values()):
@@ -98,9 +99,20 @@ def perform_security_audit(bucket_name, include_remediation=True):
         current_score -= 40
         findings.append({"control": "1. Public Access Block", "status": "FAIL", "details": "No config found."})
 
+    # 2. Bucket Policy (-30) - Updated to use JSON parsing for accuracy
     try:
         policy_str = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
-        if '"Principal": "*"' in policy_str.replace(" ", "") and '"Effect": "Allow"' in policy_str:
+        policy_json = json.loads(policy_str)
+        is_wildcard = False
+        
+        for stmt in policy_json.get('Statement', []):
+            if stmt.get('Effect') == 'Allow':
+                principal = stmt.get('Principal')
+                if principal == '*' or (isinstance(principal, dict) and principal.get('AWS') == '*'):
+                    is_wildcard = True
+                    break
+        
+        if is_wildcard:
             if is_publically_exposed:
                 current_score -= 30 
                 findings.append({"control": "2. Bucket Policy", "status": "FAIL", "details": "Global Wildcard (*)."})
@@ -111,6 +123,7 @@ def perform_security_audit(bucket_name, include_remediation=True):
     except ClientError:
         findings.append({"control": "2. Bucket Policy", "status": "PASS", "details": "Default."})
 
+    # 3. CORS (-10)
     try:
         cors = s3.get_bucket_cors(Bucket=bucket_name)
         has_wildcard = any('*' in r.get('AllowedOrigins', []) for r in cors['CORSRules'])
@@ -125,13 +138,15 @@ def perform_security_audit(bucket_name, include_remediation=True):
     except:
         findings.append({"control": "3. CORS", "status": "PASS", "details": "Default."})
 
+    # 4. Encryption (-10) - Updated to PASS on AWS Default
     try:
         s3.get_bucket_encryption(Bucket=bucket_name)
         findings.append({"control": "4. Encryption", "status": "PASS", "details": "Enabled (Explicit)."})
     except ClientError:
-        current_score -= 10
-        findings.append({"control": "4. Encryption", "status": "FAIL", "details": "Missing Explicit Config."})
+        # Pass because AWS encrypts by default (SSE-S3)
+        findings.append({"control": "4. Encryption", "status": "PASS", "details": "Enabled (AWS Default)."})
 
+    # 5. Versioning (-10)
     try:
         ver = s3.get_bucket_versioning(Bucket=bucket_name)
         if ver.get('Status') == 'Enabled':
@@ -143,6 +158,7 @@ def perform_security_audit(bucket_name, include_remediation=True):
         current_score -= 10
         findings.append({"control": "5. Versioning", "status": "FAIL", "details": "Disabled."})
 
+    # 6. SSL Enforcement (-5) - Smart JSON Parsing
     try:
         policy_str = s3.get_bucket_policy(Bucket=bucket_name)['Policy']
         policy_json = json.loads(policy_str)
@@ -163,6 +179,7 @@ def perform_security_audit(bucket_name, include_remediation=True):
         current_score -= 5
         findings.append({"control": "6. SSL Enforcement", "status": "WARN", "details": "Not Enforced."})
 
+    # 7. Logging (-5)
     try:
         logs = s3.get_bucket_logging(Bucket=bucket_name)
         if 'LoggingEnabled' in logs:
