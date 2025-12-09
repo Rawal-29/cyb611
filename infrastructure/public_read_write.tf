@@ -4,24 +4,6 @@ resource "random_string" "public_id" {
   upper   = false
 }
 
-resource "aws_s3_bucket" "public_logs" {
-  bucket = "cyb611-insecure-public-rw-logs-${random_string.public_id.result}"
-  force_destroy = true
-}
-
-resource "aws_s3_bucket_ownership_controls" "public_log_ownership" {
-  bucket = aws_s3_bucket.public_logs.id
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-}
-
-resource "aws_s3_bucket_acl" "public_log_acl" {
-  depends_on = [aws_s3_bucket_ownership_controls.public_log_ownership]
-  bucket     = aws_s3_bucket.public_logs.id
-  acl        = "log-delivery-write"
-}
-
 resource "aws_s3_bucket" "public_assets" {
   bucket = "cyb611-insecure-public-rw-${random_string.public_id.result}"
   force_destroy = true
@@ -31,6 +13,7 @@ resource "aws_s3_bucket" "public_assets" {
   }
 }
 
+# 1. Guardrails: OFF (Allows public access)
 resource "aws_s3_bucket_public_access_block" "public_block" {
   bucket = aws_s3_bucket.public_assets.id
   block_public_acls       = false
@@ -39,79 +22,30 @@ resource "aws_s3_bucket_public_access_block" "public_block" {
   restrict_public_buckets = false
 }
 
+# 2. Ownership: PREFERRED (Crucial for ACLs to work)
 resource "aws_s3_bucket_ownership_controls" "public_ownership" {
   bucket = aws_s3_bucket.public_assets.id
   rule {
-    object_ownership = "BucketOwnerEnforced"
+    object_ownership = "BucketOwnerPreferred"
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "public_enc" {
+# 3. ACL: PUBLIC-READ (The misconfiguration)
+resource "aws_s3_bucket_acl" "public_acl" {
+  depends_on = [
+    aws_s3_bucket_ownership_controls.public_ownership,
+    aws_s3_bucket_public_access_block.public_block
+  ]
   bucket = aws_s3_bucket.public_assets.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
+  acl    = "public-read"
 }
 
+# 4. Versioning: Suspended (Reverted to insecure default)
 resource "aws_s3_bucket_versioning" "public_versioning" {
   bucket = aws_s3_bucket.public_assets.id
   versioning_configuration {
-    status = "Enabled"
+    status = "Suspended"
   }
-}
-
-resource "aws_s3_bucket_policy" "enforce_tls_public" {
-  bucket = aws_s3_bucket.public_assets.id
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Sid       = "DenyInsecureTransport",
-        Effect    = "Deny",
-        Principal = "*",
-        Action    = "s3:*",
-        Resource  = [
-          aws_s3_bucket.public_assets.arn,
-          "${aws_s3_bucket.public_assets.arn}/*",
-        ],
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_s3_bucket_logging" "public_logging_config" {
-  bucket        = aws_s3_bucket.public_assets.id
-  target_bucket = aws_s3_bucket.public_logs.id
-  target_prefix = "log/"
-}
-
-resource "aws_s3_bucket_policy" "public_rw_policy" {
-  bucket = aws_s3_bucket.public_assets.id
-  depends_on = [aws_s3_bucket_public_access_block.public_block]
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Sid       = "PublicReadWrite",
-        Effect    = "Allow",
-        Principal = "*",
-        Action    = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:PutObjectAcl"
-        ]
-        Resource = "${aws_s3_bucket.public_assets.arn}/*"
-      }
-    ]
-  })
 }
 
 resource "aws_s3_object" "web_asset" {
@@ -119,5 +53,4 @@ resource "aws_s3_object" "web_asset" {
   key          = "sensitive_data/mock_pii.csv"
   content_type = "text/csv"
   content      = "id,secret\n1,PublicData"
-  depends_on   = [aws_s3_bucket_policy.public_rw_policy]
 }
