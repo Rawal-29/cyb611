@@ -42,7 +42,7 @@ resource "aws_s3_bucket_public_access_block" "public_block" {
 resource "aws_s3_bucket_ownership_controls" "public_ownership" {
   bucket = aws_s3_bucket.public_assets.id
   rule {
-    object_ownership = "BucketOwnerPreferred"
+    object_ownership = "BucketOwnerEnforced"
   }
 }
 
