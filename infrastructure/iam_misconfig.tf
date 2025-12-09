@@ -4,6 +4,7 @@ resource "random_string" "iam_id" {
   upper   = false
 }
 
+
 resource "aws_s3_bucket" "iam_logs" {
   bucket = "cyb611-insecure-iam-logs-${random_string.iam_id.result}"
   force_destroy = true
@@ -22,10 +23,10 @@ resource "aws_s3_bucket_acl" "iam_log_acl" {
   acl        = "log-delivery-write"
 }
 
+
 resource "aws_s3_bucket" "iam_bucket" {
   bucket        = "cyb611-insecure-iam-${random_string.iam_id.result}"   
   force_destroy = true
-
   tags = {
     Name = "Insecure IAM"
   }
@@ -35,28 +36,12 @@ resource "aws_s3_bucket" "iam_bucket" {
 resource "aws_s3_bucket_public_access_block" "iam_unsafe" {
   bucket = aws_s3_bucket.iam_bucket.id
   block_public_acls       = true
-  block_public_policy     = false 
+  block_public_policy     = false # FAIL
   ignore_public_acls      = true
-  restrict_public_buckets = false 
+  restrict_public_buckets = false # FAIL
 }
 
-resource "aws_s3_bucket_ownership_controls" "iam_ownership" {
-  bucket = aws_s3_bucket.iam_bucket.id
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "iam_enc" {
-  bucket = aws_s3_bucket.iam_bucket.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-
+# SECURE: Versioning Enabled (Blocks Ransomware)
 resource "aws_s3_bucket_versioning" "iam_versioning" {
   bucket = aws_s3_bucket.iam_bucket.id
   versioning_configuration {
@@ -64,10 +49,19 @@ resource "aws_s3_bucket_versioning" "iam_versioning" {
   }
 }
 
+
 resource "aws_s3_bucket_logging" "iam_logging" {
   bucket        = aws_s3_bucket.iam_bucket.id
   target_bucket = aws_s3_bucket.iam_logs.id
   target_prefix = "log/"
+}
+
+
+resource "aws_s3_bucket_ownership_controls" "iam_ownership" {
+  bucket = aws_s3_bucket.iam_bucket.id
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
 }
 
 
@@ -92,7 +86,7 @@ resource "aws_s3_bucket_policy" "iam_policy" {
   })
 }
 
-resource "aws_s3_object" "iam_config" {
+resource "aws_s3_object" "iam_file" {
   bucket       = aws_s3_bucket.iam_bucket.id
   key          = "sensitive_data/mock_pii.csv"
   content_type = "text/csv"
