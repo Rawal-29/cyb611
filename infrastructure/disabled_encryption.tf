@@ -83,3 +83,27 @@ resource "aws_s3_object" "archive_file" {
   content_type = "text/csv"
   content      = "id,secret\n1,UnencryptedData"
 }
+
+resource "aws_s3_bucket_policy" "legacy_ssl_policy" {
+  bucket = aws_s3_bucket.legacy_data.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid       = "DenyInsecureTransport",
+        Effect    = "Deny",
+        Principal = "*",
+        Action    = "s3:*",
+        Resource  = [
+          aws_s3_bucket.legacy_data.arn,
+          "${aws_s3_bucket.legacy_data.arn}/*",
+        ],
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
+  })
+}

@@ -37,9 +37,9 @@ resource "aws_s3_bucket" "dev_bucket" {
 resource "aws_s3_bucket_public_access_block" "dev_unsafe" {
   bucket = aws_s3_bucket.dev_bucket.id
   block_public_acls       = true
-  block_public_policy     = false # FAIL
+  block_public_policy     = false 
   ignore_public_acls      = true
-  restrict_public_buckets = false # FAIL
+  restrict_public_buckets = false 
 }
 
 # SECURE: Ownership Enforced
@@ -83,6 +83,21 @@ resource "aws_s3_bucket_policy" "dev_policy" {
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
+      {
+        Sid       = "DenyInsecureTransport",
+        Effect    = "Deny",
+        Principal = "*",
+        Action    = "s3:*",
+        Resource  = [
+          aws_s3_bucket.dev_bucket.arn,
+          "${aws_s3_bucket.dev_bucket.arn}/*",
+        ],
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
       {
         Sid       = "InsecureWildcard",
         Effect    = "Allow",
