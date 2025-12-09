@@ -39,13 +39,6 @@ resource "aws_s3_bucket_public_access_block" "public_block" {
   restrict_public_buckets = false
 }
 
-resource "aws_s3_bucket_ownership_controls" "public_ownership" {
-  bucket = aws_s3_bucket.public_assets.id
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
 resource "aws_s3_bucket_server_side_encryption_configuration" "public_enc" {
   bucket = aws_s3_bucket.public_assets.id
   rule {
