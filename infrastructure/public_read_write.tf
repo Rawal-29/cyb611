@@ -85,7 +85,6 @@ resource "aws_s3_bucket_logging" "public_logging_config" {
   target_prefix = "log/"
 }
 
-# SECURE: SSL Enforced (Baseline - Policy prevents HTTP)
 resource "aws_s3_bucket_policy" "enforce_tls_public" {
   bucket = aws_s3_bucket.public_assets.id
   policy = jsonencode({
@@ -109,7 +108,6 @@ resource "aws_s3_bucket_policy" "enforce_tls_public" {
     ]
   })
 }
-
 resource "aws_s3_object" "web_asset" {
   bucket       = aws_s3_bucket.public_assets.id
   key          = "sensitive_data/mock_pii.csv"
