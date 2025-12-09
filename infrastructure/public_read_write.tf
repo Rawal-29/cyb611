@@ -4,6 +4,24 @@ resource "random_string" "public_id" {
   upper   = false
 }
 
+resource "aws_s3_bucket" "public_logs" {
+  bucket = "cyb611-insecure-public-rw-logs-${random_string.public_id.result}"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "public_log_ownership" {
+  bucket = aws_s3_bucket.public_logs.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "public_log_acl" {
+  depends_on = [aws_s3_bucket_ownership_controls.public_log_ownership]
+  bucket     = aws_s3_bucket.public_logs.id
+  acl        = "log-delivery-write"
+}
+
 resource "aws_s3_bucket" "public_assets" {
   bucket = "cyb611-insecure-public-rw-${random_string.public_id.result}"
   force_destroy = true
@@ -13,7 +31,7 @@ resource "aws_s3_bucket" "public_assets" {
   }
 }
 
-# 1. Guardrails: OFF (Allows public access)
+# VULNERABLE: Guardrails Disabled
 resource "aws_s3_bucket_public_access_block" "public_block" {
   bucket = aws_s3_bucket.public_assets.id
   block_public_acls       = false
@@ -22,7 +40,6 @@ resource "aws_s3_bucket_public_access_block" "public_block" {
   restrict_public_buckets = false
 }
 
-# 2. Ownership: PREFERRED (Crucial for ACLs to work)
 resource "aws_s3_bucket_ownership_controls" "public_ownership" {
   bucket = aws_s3_bucket.public_assets.id
   rule {
@@ -30,7 +47,7 @@ resource "aws_s3_bucket_ownership_controls" "public_ownership" {
   }
 }
 
-# 3. ACL: PUBLIC-READ (The misconfiguration)
+# VULNERABLE: Public ACL (Causes Data Exfiltration Fail)
 resource "aws_s3_bucket_acl" "public_acl" {
   depends_on = [
     aws_s3_bucket_ownership_controls.public_ownership,
@@ -40,13 +57,30 @@ resource "aws_s3_bucket_acl" "public_acl" {
   acl    = "public-read"
 }
 
-# 4. Versioning: Suspended (Reverted to insecure default)
+resource "aws_s3_bucket_server_side_encryption_configuration" "public_enc" {
+  bucket = aws_s3_bucket.public_assets.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# SECURE: Versioning Enabled (Passes Ransomware Check)
 resource "aws_s3_bucket_versioning" "public_versioning" {
   bucket = aws_s3_bucket.public_assets.id
   versioning_configuration {
-    status = "Suspended"
+    status = "Enabled"
   }
 }
+
+resource "aws_s3_bucket_logging" "public_logging_config" {
+  bucket        = aws_s3_bucket.public_assets.id
+  target_bucket = aws_s3_bucket.public_logs.id
+  target_prefix = "log/"
+}
+
+# VULNERABLE: SSL Policy REMOVED (Causes SSL Strip Fail)
 
 resource "aws_s3_object" "web_asset" {
   bucket       = aws_s3_bucket.public_assets.id
