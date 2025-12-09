@@ -4,7 +4,6 @@ resource "random_string" "public_id" {
   upper   = false
 }
 
-
 resource "aws_s3_bucket" "public_logs" {
   bucket = "cyb611-insecure-public-rw-logs-${random_string.public_id.result}"
   force_destroy = true
@@ -23,10 +22,10 @@ resource "aws_s3_bucket_acl" "public_log_acl" {
   acl        = "log-delivery-write"
 }
 
-
-resource "aws_s3_bucket" "public_bucket" {
+resource "aws_s3_bucket" "public_assets" {
   bucket = "cyb611-insecure-public-rw-${random_string.public_id.result}"
   force_destroy = true
+  
   tags = {
     Name = "Insecure Public RW"
   }
@@ -34,7 +33,7 @@ resource "aws_s3_bucket" "public_bucket" {
 
 
 resource "aws_s3_bucket_public_access_block" "public_block" {
-  bucket = aws_s3_bucket.public_bucket.id
+  bucket = aws_s3_bucket.public_assets.id
   block_public_acls       = false
   block_public_policy     = false
   ignore_public_acls      = false
@@ -43,7 +42,7 @@ resource "aws_s3_bucket_public_access_block" "public_block" {
 
 
 resource "aws_s3_bucket_ownership_controls" "public_ownership" {
-  bucket = aws_s3_bucket.public_bucket.id
+  bucket = aws_s3_bucket.public_assets.id
   rule {
     object_ownership = "BucketOwnerPreferred"
   }
@@ -55,29 +54,37 @@ resource "aws_s3_bucket_acl" "public_acl" {
     aws_s3_bucket_ownership_controls.public_ownership,
     aws_s3_bucket_public_access_block.public_block
   ]
-  bucket = aws_s3_bucket.public_bucket.id
+  bucket = aws_s3_bucket.public_assets.id
   acl    = "public-read"
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "public_enc" {
+  bucket = aws_s3_bucket.public_assets.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
 }
 
 
 resource "aws_s3_bucket_versioning" "public_versioning" {
-  bucket = aws_s3_bucket.public_bucket.id
+  bucket = aws_s3_bucket.public_assets.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-
-resource "aws_s3_bucket_logging" "public_logging" {
-  bucket        = aws_s3_bucket.public_bucket.id
+resource "aws_s3_bucket_logging" "public_logging_config" {
+  bucket        = aws_s3_bucket.public_assets.id
   target_bucket = aws_s3_bucket.public_logs.id
   target_prefix = "log/"
 }
 
 
 
-resource "aws_s3_object" "public_file" {
-  bucket       = aws_s3_bucket.public_bucket.id
+resource "aws_s3_object" "web_asset" {
+  bucket       = aws_s3_bucket.public_assets.id
   key          = "sensitive_data/mock_pii.csv"
   content_type = "text/csv"
   content      = "id,secret\n1,PublicData"
