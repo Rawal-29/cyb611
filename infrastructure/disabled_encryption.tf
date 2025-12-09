@@ -22,6 +22,14 @@ resource "aws_s3_bucket_acl" "legacy_log_acl" {
   acl        = "log-delivery-write"
 }
 
+resource "aws_s3_bucket_public_access_block" "log_block" {
+  bucket = aws_s3_bucket.legacy_logs.id
+  block_public_acls       = false
+  block_public_policy     = true
+  ignore_public_acls      = false
+  restrict_public_buckets = true
+}
+
 resource "aws_s3_bucket" "legacy_data" {
   bucket = "cyb611-insecure-no-encryption-${random_string.legacy_id.result}"
   force_destroy = true
@@ -31,9 +39,8 @@ resource "aws_s3_bucket" "legacy_data" {
   }
 }
 
-
 resource "aws_s3_bucket_public_access_block" "legacy_block" {
-  bucket = aws_s3_bucket.legacy_data.id
+  bucket                  = aws_s3_bucket.legacy_data.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -47,17 +54,6 @@ resource "aws_s3_bucket_ownership_controls" "legacy_ownership" {
   }
 }
 
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "legacy_enc" {
-  bucket = aws_s3_bucket.legacy_data.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-
 resource "aws_s3_bucket_versioning" "legacy_versioning" {
   bucket = aws_s3_bucket.legacy_data.id
   versioning_configuration {
@@ -69,31 +65,11 @@ resource "aws_s3_bucket_logging" "legacy_logging_config" {
   bucket        = aws_s3_bucket.legacy_data.id
   target_bucket = aws_s3_bucket.legacy_logs.id
   target_prefix = "log/"
-}
-
-
-resource "aws_s3_bucket_policy" "legacy_ssl_policy" {
-  bucket = aws_s3_bucket.legacy_data.id
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Sid       = "DenyInsecureTransport",
-        Effect    = "Deny",
-        Principal = "*",
-        Action    = "s3:*",
-        Resource  = [
-          aws_s3_bucket.legacy_data.arn,
-          "${aws_s3_bucket.legacy_data.arn}/*",
-        ],
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
-      }
-    ]
-  })
+  
+  depends_on = [
+    aws_s3_bucket_acl.legacy_log_acl,
+    aws_s3_bucket_public_access_block.log_block
+  ]
 }
 
 resource "aws_s3_object" "archive_file" {
