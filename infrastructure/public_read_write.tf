@@ -4,6 +4,7 @@ resource "random_string" "public_id" {
   upper   = false
 }
 
+
 resource "aws_s3_bucket" "public_logs" {
   bucket = "cyb611-insecure-public-rw-logs-${random_string.public_id.result}"
   force_destroy = true
@@ -21,6 +22,7 @@ resource "aws_s3_bucket_acl" "public_log_acl" {
   bucket     = aws_s3_bucket.public_logs.id
   acl        = "log-delivery-write"
 }
+
 
 resource "aws_s3_bucket" "public_assets" {
   bucket = "cyb611-insecure-public-rw-${random_string.public_id.result}"
@@ -48,7 +50,6 @@ resource "aws_s3_bucket_ownership_controls" "public_ownership" {
   }
 }
 
-
 resource "aws_s3_bucket_acl" "public_acl" {
   depends_on = [
     aws_s3_bucket_ownership_controls.public_ownership,
@@ -56,15 +57,6 @@ resource "aws_s3_bucket_acl" "public_acl" {
   ]
   bucket = aws_s3_bucket.public_assets.id
   acl    = "public-read"
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "public_enc" {
-  bucket = aws_s3_bucket.public_assets.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
 }
 
 
